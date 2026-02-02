@@ -1,0 +1,29 @@
+Subiectul 75 - Analiza Factorială
+
+În fișierul Satisfactie_Angajati.csv sunt prezentate rezultatele unui sondaj de satisfacție în rândul angajaților.
+Variabile: 
+- AngajatID: Identificator unic angajat
+- Nume: Nume angajat
+- Salariu: Salariul anual
+- Vechime: Ani în companie
+- Q1, Q2, Q3, Q4, Q5: Răspunsuri la întrebări de satisfacție (scara 1-10)
+
+În fișierul Departamente.csv se află alocarea angajaților pe departamente.
+Variabile:
+- AngajatID: Identificator unic (legătura)
+- Departament: Numele departamentului
+- Oras: Locația biroului
+
+A. Să se implementeze următoarele cerințe:
+
+1. Să se salveze în fișierul Cerinta1.csv angajații care au un salariu mai mare decât media salariilor din companie. Se vor salva: Nume, Departament, Salariu. (1 punct)
+Criteriul de acordare a punctajului: vizualizarea fișierului output și codului sursă.
+
+2. Să se calculeze scorul mediu de satisfacție (media Q1-Q5) pentru fiecare angajat, apoi să se determine care este departamentul cu cea mai mare medie a acestor scoruri agregate. Se va salva în Cerinta2.csv: Departament, Scorul Mediu Agregat Maxim. (2 puncte)
+Criteriul de acordare a punctajului: vizualizarea fișierului output și codului sursă.
+
+B. Să se efectueze analiza factorială pentru variabilele de satisfacție (Q1-Q5), cu rotație Varimax și să se furnizeze următoarele rezultate:
+
+1. Tabelul varianței factorilor comuni (Eigenvalues, % Varianță, % Cumulat). Se va salva în Varianta.csv. (2 puncte)
+2. Corelațiile variabile - factori (Loadings). Se vor salva în FactorLoadings.csv. (1 punct)
+3. Trasarea cercului corelațiilor pentru primii doi factori. (2 puncte)

@@ -1,0 +1,30 @@
+Subiectul 95 - Analiza Canonică
+
+În fișierul Date_Medicale.csv sunt variabile fiziologice pentru un grup de pacienți.
+Variabile Set X (Fiziologic):
+- PacientID
+- BMI (Body Mass Index)
+- Tensiune (Sistolică)
+- Puls
+- Colesterol
+
+În fișierul Date_Sportive.csv sunt variabile legate de performanța sportivă pentru aceiași pacienți.
+Variabile Set Y (Performanță):
+- PacientID
+- Viteza_Alergare (km/h)
+- Rezistenta (minute)
+- Forta (kg ridicate)
+
+A. Cerințe prelucrare date:
+
+1. Să se identifice pacienții "Atletici" (Viteza > 12 și Rezistenta > 40). Se va salva în Atleti.csv: PacientID, Viteza_Alergare, Rezistenta. (1 punct)
+Criteriul de acordare a punctajului: vizualizarea fișierului output și codului sursă.
+
+2. Să se calculeze corelația simplă (Pearson) dintre BMI și Viteza_Alergare. Se va afișa valoarea la consolă. (2 puncte)
+Criteriul de acordare a punctajului: vizualizarea output consola și codului sursă.
+
+B. Să se efectueze Analiza Canonică (CCA) pentru a studia relația dintre setul X (Fiziologic) și setul Y (Performanță).
+
+1. Calcul scoruri canonice (variabile canonice) pentru ambele seturi (U pentru X, V pentru Y). Se vor salva primele 2 perechi de scoruri în ScoruriCanonice.csv. (2 puncte)
+2. Calcul corelații canonice (între perechile de variabile canonice). Se vor afișa la consolă. (1 punct)
+3. Trasarea cercului corelațiilor (sau biplot) pentru prima pereche de variabile canonice. (2 puncte)

@@ -1,0 +1,30 @@
+Subiectul 85 - Analiza Discriminantă
+
+În fișierul Clienti_Banca.csv sunt informații despre clienții unei bănci.
+Variabile:
+- ClientID: ID Client
+- VenitAnual: Venitul anual (EUR)
+- Datorie: Datoria curentă totală
+- ScoredCredit: Scorul de credit (300-850)
+- Default: 0 = Nu a intrat în incapacitate, 1 = A intrat în incapacitate (Variabila Tintă)
+
+În fișierul Sucursale.csv sunt informații geografice.
+Variabile:
+- ClientID: ID Client
+- Sucursala: Orașul sucursalei
+- Regiune: Regiunea geografică
+
+A. Cerințe prelucrare date:
+
+1. Să se identifice clienții cu risc ridicat (Datorie > 20.000 si ScoredCredit < 600). Să se salveze în RiscRidicat.csv: ClientID, VenitAnual, Datorie. (1 punct)
+Criteriul de acordare a punctajului: vizualizarea fișierului output și codului sursă.
+
+2. Să se calculeze venitul mediu al clienților pentru fiecare sucursală. Rezultatul va fi salvat în VenitMediuSucursala.csv. (2 puncte)
+Criteriul de acordare a punctajului: vizualizarea fișierului output și codului sursă.
+
+B. Să se efectueze Analiza Discriminantă Liniară (LDA) pentru a prezice variabila "Default" pe baza variabilelor independente (VenitAnual, Datorie, ScoredCredit).
+
+1. Calcul scoruri discriminante și salvare în ScoruriDiscriminante.csv. (1 punct)
+2. Matricea de confuzie și acuratețea modelului pe întreg setul de date (sau set de test, conform split). Se vor afișa la consolă. (2 puncte)
+(Notă: Se poate face split Train/Test 70/30 sau pe tot setul dacă nu se specifică).
+3. Trasarea graficului scorurilor discriminante (Histograme sau Plot instanțe). (2 puncte)
