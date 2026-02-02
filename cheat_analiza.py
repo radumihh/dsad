@@ -1,167 +1,222 @@
-# CHEATSHEET ANALIZĂ DE DATE - EXAMEN
-# Sintaxă "Minimalistă" bazată pe bibliotecile standard folosite la seminar
-# Nu include grafice. Doar calcule numerice.
+# CHEATSHEET ANALIZĂ DE DATE - EXAMEN (STIL SEMINAR)
+# Sintaxă "Minimalistă" bazată pe flow-ul din seminare (11, 12, 13)
+# Include cod concret pentru calculele numerice obligatorii, fără grafice externe.
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import sys
 
-# Importurile esentiale pentru fiecare tip de analiza
+# Biblioteci Specifice Seminarelor
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from factor_analyzer import FactorAnalyzer, calculate_bartlett_sphericity, calculate_kmo
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, accuracy_score, silhouette_samples, silhouette_score
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.cross_decomposition import CCA
+from scipy.stats import f
+
+# Setări afișare seminar
+pd.set_option("display.max_columns", None)
+np.set_printoptions(3, sys.maxsize, suppress=True)
 
 # ==============================================================================
-# 0. PREGĂTIRE DE BAZĂ (Valabil pt toate)
+# 0. FUNCȚII AUXILIARE (Din `functii.py` seminare)
 # ==============================================================================
-def pregatire_date(df, coloane_numerice):
-    # 1. Extragere date
-    X = df[coloane_numerice].values
-    
-    # 2. Curatare NaN (cu media)
-    imputer = SimpleImputer(strategy='mean') # Sau manual: df.fillna(df.mean())
-    # X = imputer.fit_transform(X) # Daca folositi sklearn, sau manual in Pandas
-    
-    # 3. Standardizare (OBLIGATORIU pentru majoritatea)
-    scaler = StandardScaler()
-    X_std = scaler.fit_transform(X)
-    
-    return X_std, df.index, coloane_numerice
+# Înlocuiește valorile lipsă cu media (numerice) sau modul (categoriale/string)
+def nan_replace_df(t):
+    for c in t.columns:
+        if t[c].isna().any():
+            if pd.api.types.is_numeric_dtype(t[c]):
+                t[c] = t[c].fillna(t[c].mean())
+            else:
+                t[c] = t[c].fillna(t[c].mode()[0])
 
 # ==============================================================================
-# 1. ANALIZA ÎN COMPONENTE PRINCIPALE (ACP / PCA)
+# 1. ANALIZA FACTORIALĂ (FA) - Seminar 10/11
 # ==============================================================================
-def cod_acp(X_std):
-    # Model
-    model_pca = PCA()
-    model_pca.fit(X_std)
+def analiza_factoriala(t, variabile_observate):
+    """
+    t: DataFrame-ul inițial
+    variabile_observate: lista numelor coloanelor numerice
+    """
+    x = t[variabile_observate].values
     
-    # A. Varianta Componentelor (Valori Proprii / Alpha)
-    varianta = model_pca.explained_variance_ 
-    varianta_procentuala = model_pca.explained_variance_ratio_
-    varianta_cumulata = np.cumsum(varianta_procentuala)
-    
-    # B. Scorurile (Componentele Principale - C) -> Proiectia instantelor
-    scoruri = model_pca.transform(X_std)
-    # Salvare scoruri
-    # pd.DataFrame(scoruri, index=indecsi, columns=[f"C{i+1}" for i in range(scoruri.shape[1])])
-    
-    # C. Corelatiile Factoriale (Rxc) -> Intre variabile originale si componente
-    # Formula: loadings * sqrt(eigenvalues)
-    # In sklearn: components_ sunt vectorii proprii transpusi (Loadings)
-    # Corelatie = components_ * sqrt(varianta)
-    loadings = model_pca.components_.T * np.sqrt(model_pca.explained_variance_)
-    # pd.DataFrame(loadings, index=coloane, columns=[f"C{i+1}"...])
-    
-    return varianta, scoruri, loadings
-
-# ==============================================================================
-# 2. ANALIZA FACTORIALĂ (FA)
-# ==============================================================================
-def cod_factorial(X_std):
     # A. Teste de Factorabilitate
-    # Bartlett (p-value < 0.05 => bun)
-    chi_square_value, p_value = calculate_bartlett_sphericity(X_std)
+    # 1. Bartlett (p-value < 0.05 => există factori comuni)
+    test_bartlett = calculate_bartlett_sphericity(x)
+    print("Bartlett:", test_bartlett) # (chi2, p-value)
     
-    # KMO (> 0.6 => bun)
-    kmo_all, kmo_model = calculate_kmo(X_std)
+    # 2. KMO (Index Kaiser-Meyer-Olkin > 0.6 => bun)
+    kmo_all, kmo_model = calculate_kmo(x)
+    # Putem salva KMO pe variabile
+    t_kmo = pd.DataFrame(
+        data={"KMO": np.append(kmo_all, kmo_model)},
+        index=variabile_observate + ["Total"]
+    )
+    t_kmo.to_csv("dataOUT/KMO.csv")
     
-    # B. Modelare (Rotatie 'varimax' sau 'none')
-    nr_factori = 3 # Se alege pe baza criteriului Kaiser (eigenvalues > 1) de la PCA
-    model_fa = FactorAnalyzer(n_factors=nr_factori, rotation="varimax")
-    model_fa.fit(X_std)
+    # B. Construire Model (FactorAnalyzer)
+    # Nr factori = nr variabile (inițial, pentru a vedea varianța) sau mai mic
+    m = len(variabile_observate)
+    model_af = FactorAnalyzer(n_factors=m, rotation=None)
+    model_af.fit(x)
     
-    # C. Varianta Factorilor
-    # Returneaza 3 linii: SS Loadings, Proportion Var, Cumulative Var
-    matrice_varianta = model_fa.get_factor_variance()
+    # C. Analiza Varianței
+    # get_factor_variance() returnează 3 array-uri:
+    # [0] SS Loadings (Varianța), [1] Proportion Var, [2] Cumulative Var
+    varianta = model_af.get_factor_variance()
     
-    # D. Incarcaturi Factoriale (Loadings) - Matricea Corelatiilor Variabile-Factori
-    loadings = model_fa.loadings_
+    t_varianta = pd.DataFrame(
+        data={
+            "Varianta": varianta[0],
+            "Procent varianta": varianta[1],
+            "Procent cumulat": varianta[2]
+        },
+        index=["F"+str(i+1) for i in range(len(varianta[0]))]
+    )
+    t_varianta.to_csv("dataOUT/Varianta_Factori.csv")
     
-    # E. Scorurile Factoriale
-    scoruri_factoriale = model_fa.transform(X_std)
+    # D. Varianta Specifică & Comunalități
+    psi = model_af.get_uniquenesses() # Varianta specifică
+    comm = model_af.get_communalities() # Comunalități
     
-    # F. Comunalitati (Cat la % din varianta variabilei e explicata de factori)
-    comunalitati = model_fa.get_communalities()
+    t_comm = pd.DataFrame({
+        "Comunalitati": comm,
+        "Varianta Specifica": psi
+    }, index=variabile_observate)
+    t_comm.to_csv("dataOUT/Comunalitati.csv")
     
-    return matrice_varianta, loadings, scoruri_factoriale
+    # E. Scoruri Factoriale (Dacă se cer factori rotiți, schimbi rotation='varimax' sus)
+    scoruri = model_af.transform(x)
+    # pd.DataFrame(scoruri...).to_csv(...)
 
 # ==============================================================================
-# 3. ANALIZA DE CLUSTERI (Ierarhică - HCA)
+# 2. ANALIZA DISCRIMINANTĂ (LDA) - Seminar 12
 # ==============================================================================
-def cod_clusteri(X_std):
-    # A. Matricea Ierarhiei (Z) - Linkage
-    # Metoda 'ward' si metrica 'euclidean' sunt standard
-    matrice_ierarhie = linkage(X_std, method='ward', metric='euclidean')
-    # Structura Z: [idx1, idx2, distanta, nr_elemente]
+def analiza_discriminanta(t, predictori, tinta):
+    """
+    predictori: lista coloanelor X
+    tinta: numele coloanei Y (etichete clase)
+    """
+    # 1. Splitare Train/Test (uzual 70/30 sau 60/40)
+    # t[tinta] sunt etichetele
+    t_train, t_test, y_train, y_test = train_test_split(
+        t[predictori], t[tinta], test_size=0.3
+    )
     
-    # B. Determinarea nr optim de clusteri (Metoda Elbow pe distante)
-    distante = matrice_ierarhie[:, 2] # coloana a 3-a
-    diferente = np.diff(distante, 2) # diferenta de ordin 2 (acceleratia)
-    point_elbow = np.argmax(diferente) + 1 # +1 pt ajustare index
-    k_optim = len(X_std) - point_elbow
-    
-    # C. Partiționarea (Cui apartine fiecare instanta?)
-    # k = numarul de clusteri dorit
-    partitie = fcluster(matrice_ierarhie, t=k_optim, criterion='maxclust')
-    
-    # Salvare
-    # df['Cluster'] = partitie
-    
-    return matrice_ierarhie, partitie
-
-# ==============================================================================
-# 4. ANALIZA DISCRIMINANTĂ (LDA)
-# ==============================================================================
-def cod_discriminant(df, vars_independent, var_tinta):
-    X = df[vars_independent].values
-    y = df[var_tinta].values
-    
-    # Model
+    # 2. Model LDA
     model_lda = LinearDiscriminantAnalysis()
-    model_lda.fit(X, y)
+    model_lda.fit(t_train, y_train)
     
-    # A. Scorurile Discriminante
-    scoruri = model_lda.transform(X)
+    # 3. Evaluare Predictori (Discriminare) - Calcul manual F-Ratio (Complex)
+    # (Vezi cod seminar pentru calcul detaliat cu sst, ssb, ssw dacă se cere explicit puterea discriminare)
+    # model_lda.priors_ (probabilitati a priori), model_lda.means_ (media claselor)
     
-    # B. Predictie
-    predictii = model_lda.predict(X)
+    # 4. Predicție și Evaluare
+    predictie_test = model_lda.predict(t_test)
     
-    # C. Evaluare (Matrice Confuzie & Acuratete)
-    matrice_confuzie = confusion_matrix(y, predictii)
-    acuratete = accuracy_score(y, predictii)
+    # Salvare predicții
+    t_pred = pd.DataFrame({
+        "Real": y_test,
+        "Predictie": predictie_test
+    }, index=t_test.index)
+    t_pred.to_csv("dataOUT/Predictii_Test.csv")
     
-    return scoruri, matrice_confuzie, acuratete
+    # Matrice Confuzie & Acuratețe
+    conf_matrix = confusion_matrix(y_test, predictie_test)
+    acc = accuracy_score(y_test, predictie_test)
+    
+    # Salvare Matrice Confuzie
+    # Etichete clase
+    clase = model_lda.classes_
+    t_conf = pd.DataFrame(conf_matrix, index=clase, columns=clase)
+    t_conf.to_csv("dataOUT/Matrice_Confuzie.csv")
+    print(f"Acuratete: {acc}")
+    
+    # 5. Scoruri Discriminante (Z)
+    # transform returnează scorurile pe axele discriminante (k-1 axe)
+    z = model_lda.transform(t[predictori]) 
+    # Atentie: transform se aplică pe tot setul sau pe train, depinde de cerință
 
 # ==============================================================================
-# 5. ANALIZA CANONICĂ (CCA)
+# 3. ANALIZA DE CLUSTERI (Ierarhică) - Seminar 13
 # ==============================================================================
-def cod_canonic(X_std, Y_std):
-    # X_std (Set 1), Y_std (Set 2)
-    n = X_std.shape[0]
-    p = X_std.shape[1]
-    q = Y_std.shape[1]
-    m = min(p, q) # Numarul de perechi canonice
+def analiza_clusteri(t, variabile_observate):
+    x = t[variabile_observate].values
     
-    # Model
-    model_cca = CCA(n_components=m)
-    model_cca.fit(X_std, Y_std)
+    # A. Matricea Ierarhiei (Linkage)
+    # Metode uzuale: 'ward', 'complete', 'average', 'single'
+    # Metrica: 'euclidean' (implicit la ward)
+    metoda = "ward"
+    h = linkage(x, method=metoda)
     
-    # A. Scorurile Canonice (U si V)
-    X_c, Y_c = model_cca.transform(X_std, Y_std)
-    # X_c sunt scorurile variabilelor canonice din spatiul X
-    # Y_c sunt scorurile variabilelor canonice din spatiul Y
+    # Format 'h': [idx1, idx2, distanța, nr_elem_cluster]
     
-    # B. Corelatiile Canonice (Vectorul de corelatii dintre perechi)
-    # Se calculeaza manual ca corelatia dintre colonale pereche din X_c si Y_c
-    corelatii_canonice = [np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1] for i in range(m)]
+    # B. Determinare Partiție Optimală (Metoda Elbow/Maximum Diff)
+    # Diferența dintre distanțele de agregare (ultima coloană din h)
+    distante = h[:, 2]
+    # Calculăm diferențele dintre distanțele pașilor i și i+1
+    diff = np.diff(distante, 2) # diferența de ordin 2 (acceleratia graficului)
     
-    # C. Incarcaturi (Corelatii Variabile Observate - Variabile Canonice) (Rxz, Ryu)
-    # x_loadings_ si y_loadings_ din sklearn
-    loadings_X = model_cca.x_loadings_
-    loadings_Y = model_cca.y_loadings_
+    # Indexul unde diferența e maximă (Elbow point)
+    k_opt = len(diff) - np.argmax(diff) + 1 # +1 offset
+    # SAU varianta simplă din seminar (manuală):
+    # Ne uităm la salturile mari din `distante`.
     
-    return X_c, Y_c, corelatii_canonice, loadings_X, loadings_Y
+    print("Număr optim clusteri propus:", k_opt)
+    
+    # C. Obținere Partiție (fcluster)
+    # t=k_opt (numărul de clusteri) cu criterion='maxclust'
+    p_opt = fcluster(h, t=k_opt, criterion='maxclust')
+    
+    # Salvare partiție
+    t["Cluster_Opt"] = p_opt
+    t[["Cluster_Opt"]].to_csv("dataOUT/Partitie_Optimala.csv")
+    
+    # D. Indici Silhouette
+    # Scor global
+    scor_silh = silhouette_score(x, p_opt)
+    print("Scor Silhouette Global:", scor_silh)
+    
+    # Scor per instanță
+    scoruri_instante = silhouette_samples(x, p_opt)
+    t["Silhouette_Values"] = scoruri_instante
+    # t.to_csv("Partitie_cu_Silhouette.csv")
+
+# ==============================================================================
+# 4. ANALIZA CANONICĂ (CCA) - Seminar (Model)
+# ==============================================================================
+def analiza_canonica(t, vars_X, vars_Y):
+    # Standardizare obligatorie înainte de CCA!
+    scaler = StandardScaler()
+    X_std = scaler.fit_transform(t[vars_X])
+    Y_std = scaler.fit_transform(t[vars_Y])
+    
+    p = len(vars_X)
+    q = len(vars_Y)
+    m = min(p, q) # Nr perechi canonice
+    
+    cca = CCA(n_components=m)
+    cca.fit(X_std, Y_std)
+    
+    # Scoruri (Variabile Canonice U, V)
+    X_c, Y_c = cca.transform(X_std, Y_std)
+    
+    # Corelații Canonice
+    # Se calculează ca corelația dintre perechile de scoruri (U1, V1), (U2, V2)...
+    red_list = []
+    for i in range(m):
+        corr = np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1]
+        red_list.append(corr)
+    
+    print("Corelații Canonice:", red_list)
+    
+    # Loadings (Corelații Variabile Obs - Variabile Canonice)
+    # x_loadings_ și y_loadings_
+    Rxz = cca.x_loadings_
+    Ryu = cca.y_loadings_
+    
+    pd.DataFrame(Rxz, index=vars_X, columns=["U"+str(i+1) for i in range(m)]).to_csv("dataOUT/Loadings_X.csv")
+
